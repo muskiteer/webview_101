@@ -13,9 +13,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cached WebView',
+      title: 'Eklavya',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
       home: const WebViewPage(),
@@ -35,6 +36,7 @@ class _WebViewPageState extends State<WebViewPage> {
   InAppWebViewController? webViewController;
   bool isLoading = true;
   bool showOfflineWarning = false;
+  bool showOfflineScreen = false;
   
   final InAppWebViewSettings settings = InAppWebViewSettings(
     cacheEnabled: true,
@@ -47,27 +49,15 @@ class _WebViewPageState extends State<WebViewPage> {
     allowUniversalAccessFromFileURLs: true,
     mediaPlaybackRequiresUserGesture: false,
     useHybridComposition: true,
+    allowsBackForwardNavigationGestures: true,
   );
+  
+  String lastFailedUrl = '';
+  bool isNavigatingFromError = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cached WebView'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                showOfflineWarning = false;
-                isLoading = true;
-              });
-              webViewController?.reload();
-            },
-          ),
-        ],
-      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -79,34 +69,181 @@ class _WebViewPageState extends State<WebViewPage> {
               initialSettings: settings,
               onWebViewCreated: (controller) {
                 webViewController = controller;
+                
+                // Add handler for Dashboard button
+                controller.addJavaScriptHandler(
+                  handlerName: 'goDashboard',
+                  callback: (args) {
+                    print('Dashboard button clicked - navigating to dashboard');
+                    isNavigatingFromError = true;
+                    controller.loadUrl(
+                      urlRequest: URLRequest(
+                        url: WebUri('https://eklavyaa.vercel.app/dashboard'),
+                      ),
+                    );
+                    return true;
+                  }
+                );
               },
               onLoadStart: (controller, url) {
+                print('Loading started: ${url?.toString()}');
                 setState(() {
                   isLoading = true;
                 });
               },
               onLoadStop: (controller, url) async {
+                print('Loading finished: ${url?.toString()}');
+                isNavigatingFromError = false;
                 setState(() {
                   isLoading = false;
                   showOfflineWarning = false;
+                  showOfflineScreen = false;
                 });
               },
-              onReceivedError: (controller, request, error) {
-                // Check if it's an API request
-                final isApiRequest = request.url?.toString().contains('/api/') == true;
+              onReceivedError: (controller, request, error) async {
+                final url = request.url?.toString() ?? '';
                 
-                if (isApiRequest) {
-                  // Show warning banner for API failures, but let page continue
-                  setState(() {
-                    showOfflineWarning = true;
-                  });
-                  print('API Error: ${error.description}');
-                } else {
-                  // For main page, just let it load from cache silently
-                  setState(() {
-                    isLoading = false;
-                  });
+                // Don't show error if we're navigating from error page
+                if (isNavigatingFromError) {
+                  print('Ignoring error during navigation from error page: $url');
+                  return;
                 }
+                
+                // Ignore errors for resources (images, css, js, fonts, gifs)
+                if (url.contains('.png') || url.contains('.jpg') || 
+                    url.contains('.css') || url.contains('.js') || 
+                    url.contains('.woff') || url.contains('.svg') ||
+                    url.contains('.gif') || url.contains('_next/image') || 
+                    url.contains('avatar') || url.contains('/logo.') ||
+                    url.contains('chatbase.co') || url.contains('embed.min.js')) {
+                  return; // Let page continue loading without showing error
+                }
+                
+                // Only handle main page navigation errors
+                print('Showing error page for: $url - ${error.description}');
+                lastFailedUrl = url;
+                
+                // Show custom error page
+                await controller.loadData(data: '''
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                      * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                      }
+                      body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        padding: 20px;
+                      }
+                      .container {
+                        background: white;
+                        border-radius: 20px;
+                        padding: 48px 32px;
+                        text-align: center;
+                        max-width: 420px;
+                        width: 100%;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                      }
+                      .icon-container {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        width: 100px;
+                        height: 100px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin: 0 auto 24px;
+                        font-size: 50px;
+                      }
+                      h1 {
+                        font-size: 28px;
+                        color: #1a1a1a;
+                        margin-bottom: 12px;
+                        font-weight: 700;
+                      }
+                      p {
+                        font-size: 16px;
+                        color: #666;
+                        margin-bottom: 32px;
+                        line-height: 1.6;
+                      }
+                      .buttons {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                      }
+                      .btn {
+                        padding: 16px 32px;
+                        font-size: 16px;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        border: none;
+                        font-weight: 600;
+                        width: 100%;
+                        -webkit-tap-highlight-color: transparent;
+                        touch-action: manipulation;
+                      }
+                      .btn-primary {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                      }
+                      .btn-primary:active {
+                        transform: scale(0.98);
+                        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+                      }
+                      .btn-secondary {
+                        background: #f5f5f5;
+                        color: #667eea;
+                        border: 2px solid #e0e0e0;
+                      }
+                      .btn-secondary:active {
+                        transform: translateY(2px);
+                        background: #ebebeb;
+                      }
+                    </style>
+                    <script>
+                      function goDashboard() {
+                        console.log('Button clicked');
+                        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                          console.log('Calling Flutter handler');
+                          window.flutter_inappwebview.callHandler('goDashboard');
+                        } else {
+                          console.error('Flutter handler not available');
+                        }
+                      }
+                      
+                      // Ensure handler is ready
+                      document.addEventListener('DOMContentLoaded', function() {
+                        console.log('Page loaded, flutter_inappwebview:', window.flutter_inappwebview);
+                      });
+                    </script>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <div class="icon-container">📡</div>
+                      <h1>Connection Lost</h1>
+                      <p>Unable to connect to the server. Please check your internet connection and try again.</p>
+                      <div class="buttons">
+                        <button class="btn btn-primary" onclick="goDashboard(); return false;">Return to Dashboard</button>
+                      </div>
+                    </div>
+                  </body>
+                  </html>
+                ''');
+                
+                setState(() {
+                  isLoading = false;
+                });
               },
               onReceivedHttpError: (controller, request, errorResponse) {
                 // Check if it's an API request
@@ -125,6 +262,83 @@ class _WebViewPageState extends State<WebViewPage> {
                 color: Colors.white,
                 child: const Center(
                   child: CircularProgressIndicator(),
+                ),
+              ),
+            if (showOfflineScreen)
+              Container(
+                color: Colors.white,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 100,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'No Internet Connection',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'This feature needs an internet connection to work properly.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              showOfflineScreen = false;
+                              isLoading = true;
+                            });
+                            webViewController?.reload();
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            if (webViewController != null) {
+                              webViewController!.goBack();
+                              setState(() {
+                                showOfflineScreen = false;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Go Back'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (showOfflineWarning)
