@@ -125,19 +125,19 @@ class _RAGChatModalState extends State<RAGChatModal> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.psychology, color: Colors.white, size: 24),
+                Icon(Icons.psychology, color: Theme.of(context).colorScheme.onPrimary, size: 24),
                 const SizedBox(width: 8),
-                const Text(
-                  'RAG Math Assistant',
+                Text(
+                  'Dronacharya',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimary),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],

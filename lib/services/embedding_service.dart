@@ -8,8 +8,9 @@ class EmbeddingService {
   // Hashing Vectorizer settings
   static const int _vectorSize = 2048; // Increased size to reduce collisions further
   
-  // Common English stop words to ignore
+  // Common English, Hindi, and Odia stop words to ignore
   static const Set<String> _stopWords = {
+    // English
     'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
     'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
     'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
@@ -20,7 +21,21 @@ class EmbeddingService {
     'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
     'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
     'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
-    'is', 'are', 'was', 'were', 'been', 'has', 'had', 'does', 'did', 'very'
+    'is', 'are', 'was', 'were', 'been', 'has', 'had', 'does', 'did', 'very',
+    
+    // Hindi
+    'के', 'का', 'एक', 'में', 'की', 'है', 'यह', 'और', 'से', 'हैं', 'को', 'पर', 'इस', 'होता', 'कि', 'जो', 
+    'कर', 'लिये', 'अपने', 'ने', 'बनी', 'तो', 'ही', 'या', 'एवं', 'दिया', 'गया', 'अब', 'थी', 'रहा', 'वाले', 
+    'बाद', 'लिए', 'जैसे', 'तक', 'साथ', 'वे', 'कल', 'वर्ग', 'किस', 'जिस', 'तरह', 'भी', 'लेकिन', 'अन्य', 
+    'थे', 'दो', 'करता', 'किया', 'रहे', 'प्रत्येक', 'जी', 'आप', 'कहाँ', 'हम', 'गए', 'कुछ', 'सकता', 'किसी', 
+    'ये', 'इसके', 'सबसे', 'इसमें', 'क्योंकि', 'हुई', 'करने', 'बहुत', 'सकते', 'होती', 'दू', 'मे', 'था', 
+    'हो', 'हुए', 'व', 'न', 'नहीं', 'ममें', 'भीी', 'हीी', 'थीी', 'हूँ',
+
+    // Odia
+    'ଏ', 'ଏହି', 'ଏକ', 'ଏବଂ', 'ଓ', 'ରେ', 'ର', 'କୁ', 'ଠାରୁ', 'ପାଇଁ', 'ମଧ୍ୟ', 'ଯେ', 'ଯାହା', 'କି', 'କିନ୍ତୁ', 
+    'ଅଟେ', 'ବା', 'ନା', 'ନାହିଁ', 'ଅଛି', 'ଅଛନ୍ତି', 'ହେଲେ', 'ହୋଇ', 'କରି', 'ପରେ', 'ନିଜ', 'ସେ', 'ତାଙ୍କ', 
+    'ତାହା', 'ତେବେ', 'ଯଦି', 'ତଥା', 'କେବଳ', 'କେହି', 'କିଛି', 'କେଉଁ', 'କେବେ', 'କାହିଁକି', 'କିପରି', 'ଏବେ', 
+    'ଏଠାରେ', 'ସେଠାରେ'
   };
   
   bool _isInitialized = false;
@@ -56,13 +71,24 @@ class EmbeddingService {
       final count = entry.value;
       final tf = count / words.length; // Term frequency
       
+      // 1. Whole Word Hashing (Primary)
       // Use consistent hashing to map word to a vector index
-      // We use multiple hash functions (simulated) to better represent the word
       final hash1 = _getHash(word, 1) % _vectorSize;
       final hash2 = _getHash(word, 2) % _vectorSize;
       
       embedding[hash1] += tf;
       embedding[hash2] += tf;
+
+      // 2. Character Trigram Hashing (Robustness for typos)
+      // "solar" -> "sol", "ola", "lar"
+      if (word.length >= 3) {
+        for (int i = 0; i <= word.length - 3; i++) {
+          final trigram = word.substring(i, i + 3);
+          final hashTri = _getHash(trigram, 3) % _vectorSize;
+          // Weight trigrams slightly less than whole words to prefer exact matches
+          embedding[hashTri] += (tf * 0.5); 
+        }
+      }
     }
 
     // Normalize vector (L2 normalization)
@@ -99,11 +125,13 @@ class EmbeddingService {
   }
 
   List<String> _preprocessText(String text) {
+    // Use a blocklist for punctuation instead of a whitelist for characters
+    // This ensures we don't accidentally remove non-Latin characters (Hindi, Odia, etc.)
     return text
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '') // Remove punctuation
+        .replaceAll(RegExp(r'[!"#$%&()*+,-./:;<=>?@[\]^_`{|}~]'), '') // Remove standard punctuation
         .split(RegExp(r'\s+')) // Split by whitespace
-        .where((w) => w.length > 2 && !_stopWords.contains(w)) // Filter short words and stop words
+        .where((w) => w.length > 1 && !_stopWords.contains(w)) // Filter very short words (keep 2-letter words for some languages)
         .toList();
   }
 

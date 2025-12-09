@@ -173,16 +173,16 @@ class _RAGChatModalState extends State<RAGChatModal> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.psychology, color: Colors.white, size: 28),
+                Icon(Icons.psychology, color: Theme.of(context).colorScheme.onPrimary, size: 28),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'RAG Math Assistant',
+                        'Dronacharya',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -190,7 +190,7 @@ class _RAGChatModalState extends State<RAGChatModal> {
                       Text(
                         'Powered by Vector Database',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -198,11 +198,11 @@ class _RAGChatModalState extends State<RAGChatModal> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.info_outline, color: Colors.white),
+                  icon: Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onPrimary),
                   onPressed: _showStatsDialog,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimary),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],

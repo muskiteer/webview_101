@@ -27,11 +27,35 @@ class DataLoaderService {
     }
 
     try {
-      // Load chunks
-      await _loadChunks();
+      // Load English chunks
+      await _loadChunks('chunks.jsonl', 'en');
+      
+      // Try loading Hindi chunks (if available)
+      try {
+        await _loadChunks('chunkshi.jsonl', 'hi');
+        print('✅ Loaded Hindi content');
+      } catch (_) {
+        print('ℹ️ No Hindi content found (chunkshi.jsonl)');
+      }
+
+      // Try loading Odia chunks (if available)
+      try {
+        await _loadChunks('chunksodi.jsonl', 'or');
+        print('✅ Loaded Odia content');
+      } catch (_) {
+        print('ℹ️ No Odia content found (chunksodi.jsonl)');
+      }
       
       // Load QA pairs
       await _loadQAPairs();
+      
+      // Load Custom QA pairs (Golden Set)
+      try {
+        await _loadCustomQAPairs();
+        print('✅ Loaded Custom QA pairs');
+      } catch (_) {
+        print('ℹ️ No Custom QA pairs found');
+      }
 
       final finalStats = await _vectorDb.getStats();
       print('✅ Data loading completed: $finalStats');
@@ -42,29 +66,33 @@ class DataLoaderService {
     }
   }
 
-  Future<void> _loadChunks() async {
+  Future<void> _loadChunks(String filename, String language) async {
     try {
-      final String chunksContent = await rootBundle.loadString('chunks.jsonl');
+      final String chunksContent = await rootBundle.loadString(filename);
       final List<String> lines = chunksContent
           .split('\n')
           .where((line) => line.trim().isNotEmpty)
           .toList();
 
-      print('📄 Processing ${lines.length} chunks...');
+      print('📄 Processing ${lines.length} chunks from $filename...');
 
       int processedCount = 0;
       for (final line in lines) {
         try {
           final Map<String, dynamic> json = jsonDecode(line);
           
+          // Add language to metadata
+          final metadata = <String, dynamic>{
+            'type': 'chunk',
+            'original_line': processedCount,
+            'language': language,
+          };
+
           final document = Document(
-            id: json['id']?.toString() ?? 'chunk_${processedCount}',
+            id: json['id']?.toString() ?? '${language}_chunk_${processedCount}',
             content: json['content']?.toString() ?? json['text']?.toString() ?? '',
-            source: 'chunks.jsonl',
-            metadata: {
-              'type': 'chunk',
-              'original_line': processedCount,
-            },
+            source: filename,
+            metadata: metadata,
           );
 
           if (document.content.isNotEmpty) {
@@ -72,17 +100,55 @@ class DataLoaderService {
             processedCount++;
             
             if (processedCount % 50 == 0) {
-              print('📄 Processed $processedCount chunks...');
+              print('📄 Processed $processedCount chunks from $filename...');
             }
           }
         } catch (e) {
-          print('⚠️ Error processing chunk line ${processedCount + 1}: $e');
+          print('⚠️ Error processing chunk line ${processedCount + 1} in $filename: $e');
         }
       }
 
-      print('✅ Loaded $processedCount chunks successfully');
+      print('✅ Loaded $processedCount chunks from $filename successfully');
     } catch (e) {
       print('❌ Error loading chunks: $e');
+    }
+  }
+
+  Future<void> _loadCustomQAPairs() async {
+    try {
+      final String qaContent = await rootBundle.loadString('qa_custom.jsonl');
+      final List<String> lines = qaContent
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty)
+          .toList();
+
+      print('🌟 Processing ${lines.length} Custom QA pairs...');
+
+      int processedCount = 0;
+      for (final line in lines) {
+        try {
+          final Map<String, dynamic> json = jsonDecode(line);
+          
+          final qaDoc = QADocument(
+            id: 'qa_custom_${processedCount}',
+            question: json['instruction']?.toString() ?? '',
+            answer: json['output']?.toString() ?? '',
+            context: json['context']?.toString() ?? '',
+            source: 'qa_custom.jsonl',
+          );
+
+          if (qaDoc.question.isNotEmpty && qaDoc.answer.isNotEmpty) {
+            await _vectorDb.addQADocument(qaDoc);
+            processedCount++;
+          }
+        } catch (e) {
+          print('⚠️ Error processing Custom QA line ${processedCount + 1}: $e');
+        }
+      }
+
+      print('✅ Loaded $processedCount Custom QA pairs successfully');
+    } catch (e) {
+      print('❌ Error loading Custom QA pairs: $e');
     }
   }
 
