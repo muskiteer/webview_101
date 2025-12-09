@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'widgets/rag_chatbot_fab.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -378,6 +379,7 @@ class _WebViewPageState extends State<WebViewPage> {
           ],
         ),
       ),
+      floatingActionButton: const RAGChatbotFAB(),
     );
   }
 }
