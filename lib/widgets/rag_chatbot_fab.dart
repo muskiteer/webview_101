@@ -18,9 +18,9 @@ class RAGChatbotFAB extends StatelessWidget {
     return FloatingActionButton(
       onPressed: () => _showChatModal(context),
       backgroundColor: Theme.of(context).primaryColor,
-      child: const Icon(
+      child: Icon(
         Icons.psychology,
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.onPrimary,
       ),
     );
   }

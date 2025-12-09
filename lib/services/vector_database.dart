@@ -20,7 +20,7 @@ class VectorDatabase {
 
     _database = await openDatabase(
       path,
-      version: 3, // Bump version to force recreation
+      version: 7, // Bump version to force recreation with new stop words
       onCreate: _createTables,
       onUpgrade: (db, oldVersion, newVersion) async {
         // Drop all tables and recreate

@@ -105,12 +105,22 @@ class ResponseGenerator {
   }
 
   Set<String> _extractKeywords(String text) {
+    // Expanded stop words list including Hindi and Odia
+    final stopWords = {
+      'the', 'and', 'are', 'for', 'that', 'this', 'with', 'is', 'in', 'to', 'of', 'a',
+      // Hindi
+      'के', 'का', 'एक', 'में', 'की', 'है', 'यह', 'और', 'से', 'हैं', 'को', 'पर', 'इस', 'होता', 'कि', 'जो',
+      // Odia
+      'ଏ', 'ଏହି', 'ଏକ', 'ଏବଂ', 'ଓ', 'ରେ', 'ର', 'କୁ', 'ଠାରୁ', 'ପାଇଁ'
+    };
+
     return text
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '')
+        // Keep alphanumeric, whitespace, and Hindi/Odia characters
+        .replaceAll(RegExp(r'[^\w\s\u0900-\u097F\u0B00-\u0B7F]'), '') 
         .split(' ')
-        .where((word) => word.length > 2)
-        .where((word) => !['the', 'and', 'are', 'for', 'that', 'this', 'with'].contains(word))
+        .where((word) => word.length > 1)
+        .where((word) => !stopWords.contains(word))
         .toSet();
   }
 
@@ -188,15 +198,23 @@ class ResponseGenerator {
 
   String _extractRelevantSnippet(String content, String query, {int maxLength = 200}) {
     final queryWords = _extractKeywords(query);
-    final sentences = content.split('.');
+    // Split by period, question mark, exclamation mark, and Devanagari Danda (।)
+    final sentences = content.split(RegExp(r'[.?!।]\s*'));
     
     // Find sentence with most query words
     String bestSentence = '';
     int maxMatches = 0;
     
     for (final sentence in sentences) {
-      final sentenceWords = _extractKeywords(sentence);
-      final matches = queryWords.intersection(sentenceWords).length;
+      final sentenceLower = sentence.toLowerCase();
+      int matches = 0;
+      
+      // Use substring check for Hindi/Odia robustness
+      for (final word in queryWords) {
+        if (sentenceLower.contains(word)) {
+          matches++;
+        }
+      }
       
       if (matches > maxMatches && sentence.trim().length > 20) {
         maxMatches = matches;
