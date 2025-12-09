@@ -56,11 +56,48 @@ class _WebViewPageState extends State<WebViewPage> {
   String lastFailedUrl = '';
   bool isNavigatingFromError = false;
 
+  Future<bool> _handleBackPress() async {
+    if (webViewController != null) {
+      final currentUrl = await webViewController!.getUrl();
+      final canGoBack = await webViewController!.canGoBack();
+      
+      // Check if we're on the dashboard
+      final isDashboard = currentUrl?.toString().contains('/dashboard') ?? false;
+      
+      if (isDashboard) {
+        // On dashboard, exit the app
+        return true;
+      } else if (canGoBack) {
+        // Not on dashboard, go back in webview history
+        await webViewController!.goBack();
+        return false;
+      } else {
+        // Can't go back, navigate to dashboard
+        webViewController!.loadUrl(
+          urlRequest: URLRequest(
+            url: WebUri('https://eklavyaa.vercel.app/dashboard'),
+          ),
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        final shouldPop = await _handleBackPress();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Stack(
           children: [
             InAppWebView(
               key: webViewKey,
@@ -379,7 +416,8 @@ class _WebViewPageState extends State<WebViewPage> {
           ],
         ),
       ),
-      floatingActionButton: const RAGChatbotFAB(),
+        floatingActionButton: const RAGChatbotFAB(),
+      ),
     );
   }
 }
